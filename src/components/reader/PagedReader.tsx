@@ -258,6 +258,16 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
           <ChevronRight size={24} />
         </button>
       )}
+
+      {/* Footer Info */}
+      <div className={`absolute bottom-1 left-0 right-0 flex justify-between px-8 text-[10px] ${theme.ui} opacity-60 font-medium select-none z-0`}>
+        <span>{chapterHighlights.length > 0 ? `${chapterHighlights.length} notes` : ''}</span>
+        <div className="flex gap-2">
+            <span>Page {currentPageIndex + 1} of {totalPages}</span>
+            <span>•</span>
+            <span>{Math.ceil(content.split(/\s+/).length / 200)} min left</span>
+        </div>
+      </div>
     </div>
   );
 };

@@ -190,7 +190,7 @@ export const Reader: React.FC<ReaderProps> = ({
 
       {/* Search Bar Overlay */}
       {showSearch && (
-        <div className="mt-14 bg-white border-b border-gray-200 px-4 py-3 animate-in slide-in-from-top-2 duration-200 flex items-center gap-2 z-30 shadow-sm relative">
+        <div className="fixed top-14 left-0 right-0 bg-white border-b border-gray-200 px-4 py-3 animate-in slide-in-from-top-2 duration-200 flex items-center gap-2 z-30 shadow-sm">
           <div className="flex-1 relative">
             <input
               id="search-input"
@@ -241,7 +241,7 @@ export const Reader: React.FC<ReaderProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 overflow-hidden relative ${theme.bg} ${showSearch ? '' : 'mt-14'}`}>
+      <div className={`flex-1 overflow-hidden relative ${theme.bg} mt-14 ${showSearch ? 'pt-[60px]' : ''}`}>
         <div ref={topRef} />
 
         <div className={`h-full flex flex-col transition-colors duration-300`}>
