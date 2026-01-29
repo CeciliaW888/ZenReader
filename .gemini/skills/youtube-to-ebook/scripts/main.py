@@ -7,7 +7,6 @@ Tracks processed videos to avoid sending duplicates.
 from get_videos import main as fetch_videos
 from get_transcripts import get_transcripts_for_videos
 from write_articles import write_articles_for_videos
-from send_email import send_newsletter
 from video_tracker import filter_new_videos, mark_videos_processed, get_processed_count
 
 

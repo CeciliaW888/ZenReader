@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, FilePenLine, X } from 'lucide-react';
 import { ReaderSettings, Book, Highlight } from '../types';
 import { THEME_STYLES, FONT_SIZES } from '../constants';
-import { slugify } from '../utils/markdownProcessor';
 import { ReaderTopBar } from './reader/ReaderTopBar';
+import { PagedReader } from './reader/PagedReader';
+import { ReadingFooter } from './reader/ReadingFooter';
 import { AIPanel } from './ai/AIPanel';
 import { BookNotesModal } from './BookNotesModal';
 import { ErrorBoundary } from './common/ErrorBoundary';
 import { saveBook } from '../services/db';
+import { useBookStore } from '../store/useBookStore';
 
 interface ReaderProps {
   book: Book;
@@ -33,7 +34,6 @@ export const Reader: React.FC<ReaderProps> = ({
 }) => {
   const topRef = useRef<HTMLDivElement>(null);
   const theme = THEME_STYLES[settings.theme];
-  // Cast number to key of FONT_SIZES if necessary, though indexing works
   const fontSizeClass = FONT_SIZES[settings.fontSize];
 
   const [showSearch, setShowSearch] = useState(false);
@@ -46,18 +46,68 @@ export const Reader: React.FC<ReaderProps> = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
+  // Page state from store
+  const { currentPageIndex, setCurrentPageIndex, saveReadingProgress } = useBookStore();
+  const [totalPages, setTotalPages] = useState(1);
+
   // Computed properties
   const currentChapter = book.chapters.find(c => c.id === currentChapterId);
   const currentChapterIndex = book.chapters.findIndex(c => c.id === currentChapterId);
   const hasPrev = currentChapterIndex > 0;
   const hasNext = currentChapterIndex > -1 && currentChapterIndex < book.chapters.length - 1;
 
-  // Scroll to top when chapter changes
+  // Count words for time estimation
+  const wordCount = currentChapter?.content.split(/\s+/).filter(w => w.length > 0).length || 0;
+
+  // Reset page on chapter change
   useEffect(() => {
-    topRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setSearchQuery(''); // Reset search on chapter change
+    setSearchQuery('');
     setSelectedText(null);
+    // Page reset is handled by setCurrentChapterId in the store
   }, [currentChapterId]);
+
+  // Auto-save progress (debounced)
+  const saveProgressDebounced = useCallback(() => {
+    const timeoutId = setTimeout(() => {
+      saveReadingProgress();
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [saveReadingProgress]);
+
+  useEffect(() => {
+    const cleanup = saveProgressDebounced();
+    return cleanup;
+  }, [currentPageIndex, currentChapterId, saveProgressDebounced]);
+
+  // Handle page change (from PagedReader)
+  const handlePageChange = useCallback((pageIndex: number) => {
+    setCurrentPageIndex(pageIndex);
+  }, [setCurrentPageIndex]);
+
+  // Handle page updates from PagedReader
+  const handleTotalPagesChange = useCallback((total: number) => {
+    setTotalPages(total);
+  }, []);
+
+  // Handle chapter boundary navigation
+  const handleNextPage = useCallback(() => {
+    if (currentPageIndex < totalPages - 1) {
+      setCurrentPageIndex(currentPageIndex + 1);
+    } else if (hasNext) {
+      // Move to next chapter
+      onChapterSelect(book.chapters[currentChapterIndex + 1].id);
+    }
+  }, [currentPageIndex, totalPages, hasNext, currentChapterIndex, book.chapters, onChapterSelect, setCurrentPageIndex]);
+
+  const handlePrevPage = useCallback(() => {
+    if (currentPageIndex > 0) {
+      setCurrentPageIndex(currentPageIndex - 1);
+    } else if (hasPrev) {
+      // Move to previous chapter (last page)
+      onChapterSelect(book.chapters[currentChapterIndex - 1].id);
+      // We'll need to navigate to last page after chapter loads
+    }
+  }, [currentPageIndex, hasPrev, currentChapterIndex, book.chapters, onChapterSelect, setCurrentPageIndex]);
 
   // Handle Selection
   useEffect(() => {
@@ -73,14 +123,11 @@ export const Reader: React.FC<ReaderProps> = ({
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
 
-        // Simple relative positioning check
-        // We only show if selection is within the reader article
         if (text.length > 0) {
-          // Adjust for scroll position if needed, but fixed/absolute usually relative to viewport
           setSelectedText({
             text,
-            top: rect.top, // clientY
-            left: rect.left + (rect.width / 2) // center
+            top: rect.top,
+            left: rect.left + (rect.width / 2)
           });
         }
       }
@@ -98,7 +145,7 @@ export const Reader: React.FC<ReaderProps> = ({
       id: crypto.randomUUID(),
       chapterId: currentChapterId,
       text: selectedText.text,
-      note: '', // Default empty
+      note: '',
       color: 'yellow',
       created: Date.now()
     };
@@ -108,208 +155,19 @@ export const Reader: React.FC<ReaderProps> = ({
       highlights: [...(book.highlights || []), newHighlight]
     };
 
-    // Callback to parent to persist
     await saveBook(updatedBook);
 
-    // We need to notify parent to update `book` prop. 
     if (onBookUpdate) {
       onBookUpdate(updatedBook);
     }
 
     setSelectedText(null);
     setActiveHighlightId(newHighlight.id);
-
-    // Clear selection
     window.getSelection()?.removeAllRanges();
   };
 
-  // These handlers are for future highlight editing UI
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleUpdateHighlight = async (id: string, note: string, color: string) => {
-    const newHighlights = (book.highlights || []).map(h =>
-      h.id === id ? { ...h, note, color } : h
-    );
-    const updatedBook = { ...book, highlights: newHighlights };
-    await saveBook(updatedBook);
-    if (onBookUpdate) onBookUpdate(updatedBook);
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDeleteHighlight = async (id: string) => {
-    const newHighlights = (book.highlights || []).filter(h => h.id !== id);
-    const updatedBook = { ...book, highlights: newHighlights };
-    await saveBook(updatedBook);
-    if (onBookUpdate) onBookUpdate(updatedBook);
-    setActiveHighlightId(null);
-  };
-
-
-  // Handle navigation
-  const handleNext = () => {
-    if (hasNext) onChapterSelect(book.chapters[currentChapterIndex + 1].id);
-  };
-
-  const handlePrev = () => {
-    if (hasPrev) onChapterSelect(book.chapters[currentChapterIndex - 1].id);
-  };
-
-  // Helper to highlight text & Highlights
-  const HighlightText = ({ text }: { text: string }) => {
-    // Collect all things to highlight
-    const chapterHighlights = (book.highlights || []).filter(h => h.chapterId === currentChapterId);
-
-    // If nothing to highlight, return text
-    if (!searchQuery.trim() && chapterHighlights.length === 0) {
-      return <>{text}</>;
-    }
-
-    // Debug log
-    // console.log('Highlighting check:', { text, highlights: chapterHighlights.length });
-
-    // We will build a list of "intervals" to highlight: { start, end, type, data }
-    // Since we deal with simple string matching (limitation of this approach), we find matches.
-
-    interface Match {
-      start: number;
-      end: number;
-      type: 'search' | 'note';
-      data?: Highlight & { index: number };
-      priority: number; // Search = 1 (low), Note = 2 (high)
-    }
-
-    const matches: Match[] = [];
-
-    // 1. Find Search Matches
-    if (searchQuery.trim()) {
-      // Escape special regex characters in the query
-      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escapedQuery, 'gi');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          type: 'search',
-          // Lower priority than user notes, but should still render if no overlap. 
-          // If overlap, we might want to show both or merge? 
-          // For now, simple priority: if note exists, it wins.
-          priority: 1
-        });
-      }
-    }
-
-    // 2. Find Highlight Matches
-    // Note: This matches ALL occurrences of the highlighted text string.
-    chapterHighlights.forEach((h, index) => {
-      if (!h.text.trim()) return;
-
-      // Normalize matching text to ignore whitespace differences
-      const cleanHText = h.text.replace(/\s+/g, ' ').trim();
-
-      // We still need position in original 'text', so we use regex on original
-      // Construct regex that matches the words with flexible whitespace
-      const escapedWords = cleanHText.split(' ').map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      const pattern = escapedWords.join('[\\s\\n]+');
-
-      const regex = new RegExp(pattern, 'gi');
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        matches.push({
-          start: match.index,
-          end: match.index + match[0].length,
-          type: 'note',
-          data: { ...h, index: index + 1 },
-          priority: 2
-        });
-      }
-    });
-
-    // Sort matches by start position
-    matches.sort((a, b) => a.start - b.start);
-
-    // Render loop
-    const elements: React.ReactNode[] = [];
-    let lastIndex = 0;
-
-    // Handle overlaps simply: skip if we are already past start
-    for (const match of matches) {
-      if (match.start < lastIndex) continue; // Skip overlapped for now (simple)
-
-      // Add text before match
-      if (match.start > lastIndex) {
-        elements.push(text.slice(lastIndex, match.start));
-      }
-
-      // Add match
-      if (match.type === 'search') {
-        elements.push(
-          <mark key={`search-${match.start}`} className="bg-orange-300 text-slate-900 rounded-sm px-0.5">
-            {text.slice(match.start, match.end)}
-          </mark>
-        );
-      } else {
-        const h = match.data;
-        elements.push(
-          <span
-            key={`note-${h.id}-${match.start}`}
-            className={`bg-yellow-200 cursor-pointer border-b-2 border-yellow-400`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveHighlightId(h.id);
-            }}
-          >
-            {text.slice(match.start, match.end)}
-            <sup className="text-[10px] font-bold text-yellow-800 ml-0.5 select-none hover:text-red-500">[{h.index}]</sup>
-          </span>
-        );
-      }
-
-      lastIndex = match.end;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      elements.push(text.slice(lastIndex));
-    }
-
-    return <>{elements}</>;
-  };
-
-  // Custom components to inject IDs for scrolling and highlight text
-  const markdownComponents = {
-    h1: ({ children }: { children?: React.ReactNode }) => {
-      const id = typeof children === 'string' ? slugify(children) : undefined;
-      return <h1 id={id} className="scroll-mt-24">{typeof children === 'string' ? <HighlightText text={children} /> : children}</h1>;
-    },
-    h2: ({ children }: { children?: React.ReactNode }) => {
-      const id = typeof children === 'string' ? slugify(children) : undefined;
-      return <h2 id={id} className="scroll-mt-24">{typeof children === 'string' ? <HighlightText text={children} /> : children}</h2>;
-    },
-    h3: ({ children }: { children?: React.ReactNode }) => {
-      const id = typeof children === 'string' ? slugify(children) : undefined;
-      return <h3 id={id} className="scroll-mt-24">{typeof children === 'string' ? <HighlightText text={children} /> : children}</h3>;
-    },
-    p: ({ children }: { children?: React.ReactNode }) => {
-      return (
-        <p>
-          {React.Children.map(children, child => {
-            if (typeof child === 'string') return <HighlightText text={child} />;
-            return child;
-          })}
-        </p>
-      );
-    },
-    li: ({ children }: { children?: React.ReactNode }) => {
-      return (
-        <li>
-          {React.Children.map(children, child => {
-            if (typeof child === 'string') return <HighlightText text={child} />;
-            return child;
-          })}
-        </li>
-      );
-    }
-  };
+  // Chapter highlights
+  const chapterHighlights = (book.highlights || []).filter(h => h.chapterId === currentChapterId);
 
   if (!currentChapter) return <div>Chapter not found</div>;
 
@@ -347,7 +205,7 @@ export const Reader: React.FC<ReaderProps> = ({
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <ChevronLeft size={16} className="rotate-45" /> {/* Using Chevron as X clone roughly or just X */}
+                <ChevronLeft size={16} className="rotate-45" />
               </button>
             )}
           </div>
@@ -363,7 +221,7 @@ export const Reader: React.FC<ReaderProps> = ({
           className="fixed z-50 bg-slate-800 text-white rounded-lg shadow-xl flex items-center gap-1 p-1 animate-in fade-in zoom-in-95 duration-150"
           style={{
             top: Math.max(10, selectedText.top - 50) + 'px',
-            left: Math.max(10, selectedText.left - 50) + 'px' // Simple centering
+            left: Math.max(10, selectedText.left - 50) + 'px'
           }}
         >
           <button
@@ -383,13 +241,13 @@ export const Reader: React.FC<ReaderProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 overflow-y-auto relative scroll-smooth ${theme.bg} ${showSearch ? '' : 'mt-14'}`}>
+      <div className={`flex-1 overflow-hidden relative ${theme.bg} ${showSearch ? '' : 'mt-14'}`}>
         <div ref={topRef} />
 
-        <div className={`max-w-2xl mx-auto px-6 py-12 md:py-20 min-h-screen transition-colors duration-300`}>
+        <div className={`h-full flex flex-col transition-colors duration-300`}>
           {/* General Notes Display */}
           {book.notes && (
-            <div className="mb-8 p-6 bg-yellow-50 border border-yellow-200 rounded-xl relative group">
+            <div className="mx-6 mt-6 p-6 bg-yellow-50 border border-yellow-200 rounded-xl relative group">
               <div className="flex items-center gap-2 mb-2 text-yellow-800 font-serif font-bold">
                 <FilePenLine size={18} />
                 <span>Book Notes</span>
@@ -407,54 +265,44 @@ export const Reader: React.FC<ReaderProps> = ({
             </div>
           )}
 
-          <article className={`
-            prose ${theme.prose} 
-            ${fontSizeClass} 
-            ${settings.fontFamily === 'serif' ? 'font-serif' : 'font-sans'}
-            max-w-none
-            prose-headings:font-serif prose-headings:font-bold
-            prose-p:leading-relaxed
-            prose-img:rounded-xl prose-img:shadow-md
-          `}>
-            {/* Only show Chapter Number if multiple chapters exist */}
+          {/* Chapter Title Header */}
+          <div className={`px-8 py-4 ${theme.text}`}>
             {book.chapters.length > 1 && (
-              <span className="text-xs uppercase tracking-widest opacity-40 mb-4 block">Chapter {currentChapter.order + 1}</span>
+              <span className="text-xs uppercase tracking-widest opacity-40 mb-2 block">
+                Chapter {currentChapter.order + 1}
+              </span>
             )}
-
-            {/* Only show Title if it's not just the Book Title again or "Full Text" legacy */}
             {(book.chapters.length > 1 || (currentChapter.title !== book.title && currentChapter.title !== 'Full Text')) && (
-              <h1 className="mb-8">{currentChapter.title}</h1>
+              <h1 className={`text-2xl font-serif font-bold ${theme.text}`}>
+                {currentChapter.title}
+              </h1>
             )}
+          </div>
 
-            <ReactMarkdown components={markdownComponents}>
-              {currentChapter.content}
-            </ReactMarkdown>
-          </article>
+          {/* Paged Content */}
+          <div className="flex-1 overflow-hidden">
+            <PagedReader
+              content={currentChapter.content}
+              currentPageIndex={currentPageIndex}
+              onPageChange={handlePageChange}
+              onTotalPagesChange={handleTotalPagesChange}
+              settings={settings}
+              chapterHighlights={chapterHighlights}
+              searchQuery={searchQuery}
+              onHighlightClick={(id) => setActiveHighlightId(id)}
+              onNextChapter={hasNext ? () => onChapterSelect(book.chapters[currentChapterIndex + 1].id) : undefined}
+              onPrevChapter={hasPrev ? () => onChapterSelect(book.chapters[currentChapterIndex - 1].id) : undefined}
+            />
+          </div>
 
-          {/* Chapter Navigation Footer */}
-          {(hasPrev || hasNext) && (
-            <div className="mt-20 pt-12 border-t border-gray-200/10 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity">
-              <button
-                onClick={handlePrev}
-                disabled={!hasPrev}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-colors ${!hasPrev ? 'opacity-0 cursor-default' : `${theme.ui} ${theme.uiHover}`
-                  }`}
-              >
-                <ChevronLeft size={20} />
-                <span className="font-medium">Previous</span>
-              </button>
-
-              <button
-                onClick={handleNext}
-                disabled={!hasNext}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-colors ${!hasNext ? 'opacity-0 cursor-default' : `${theme.ui} ${theme.uiHover}`
-                  }`}
-              >
-                <span className="font-medium">Next</span>
-                <ChevronRight size={20} />
-              </button>
-            </div>
-          )}
+          {/* Kindle-style Footer */}
+          <ReadingFooter
+            chapterTitle={currentChapter.title}
+            currentPage={currentPageIndex + 1}
+            totalPages={totalPages}
+            totalWords={wordCount}
+            settings={settings}
+          />
         </div>
       </div>
 

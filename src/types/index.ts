@@ -14,6 +14,12 @@ export interface Highlight {
   created: number;
 }
 
+export interface ReadingProgress {
+  chapterId: string;
+  pageIndex: number;  // Current page within the chapter
+  lastRead: number;   // Timestamp for "last read" display
+}
+
 export interface Book {
   id: string;
   title: string;
@@ -24,6 +30,7 @@ export interface Book {
   language?: string;
   notes?: string;
   highlights?: Highlight[];
+  readingProgress?: ReadingProgress;
 }
 
 export type Theme = 'light' | 'sepia' | 'dark' | 'forest' | 'midnight';
