@@ -69,9 +69,7 @@ export default function App() {
           </main>
         )}
       </div>
-      <div className="absolute bottom-2 right-2 text-[10px] opacity-20 pointer-events-none z-50">
-        v0.1.3-zustand
-      </div>
+      {/* Debug version removed */}
     </div>
   );
 }

@@ -40,36 +40,78 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
   const theme = THEME_STYLES[settings.theme];
   const fontSizeClass = FONT_SIZES[settings.fontSize];
 
-  // Calculate layout... (Keep existing logic)
-  const calculateLayout = useCallback(() => {
+  // Use ResizeObserver for robust layout detection
+  useEffect(() => {
     if (!containerRef.current) return;
-    const { clientWidth, clientHeight } = containerRef.current;
-    setLayoutDims({ width: clientWidth, height: clientHeight });
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        // Only update if dimensions changed significantly to avoid loops
+        setLayoutDims(prev => {
+          if (!prev || Math.abs(prev.width - width) > 1 || Math.abs(prev.height - height) > 1) {
+            return { width, height };
+          }
+          return prev;
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
   }, []);
 
+  // Calculate pages when content or layout changes
   useEffect(() => {
-    if (!layoutDims || !contentRef.current) return;
-    const timer = setTimeout(() => {
+    if (!layoutDims || !contentRef.current) {
+        return;
+    }
+    
+    const calculatePages = () => {
         if (!contentRef.current) return;
+        
+        // Wait for images if any (basic check)
+        const images = contentRef.current.getElementsByTagName('img');
+        const pendingImages = Array.from(images).filter(img => !img.complete);
+        
+        if (pendingImages.length > 0) {
+            // Recalculate when images load
+            Promise.all(pendingImages.map(img => new Promise(resolve => {
+                img.onload = resolve;
+                img.onerror = resolve;
+            }))).then(calculatePages);
+        }
+
         const scrollWidth = contentRef.current.scrollWidth;
         const pages = Math.max(1, Math.ceil(scrollWidth / layoutDims.width));
-        setTotalPages(pages);
-        if (onTotalPagesChange) onTotalPagesChange(pages);
-        if (currentPageIndex >= pages) onPageChange(pages - 1);
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [layoutDims, content, settings.fontSize, onTotalPagesChange]);
+        
+        setTotalPages(prev => {
+            if (prev !== pages) {
+                if (onTotalPagesChange) onTotalPagesChange(pages);
+                return pages;
+            }
+            return prev;
+        });
 
-  useEffect(() => {
-    calculateLayout();
-    const handleResize = () => setTimeout(calculateLayout, 100);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [calculateLayout]);
+        // Safety check: if current page is invalid, move to last page
+        if (currentPageIndex >= pages) {
+           // We don't call onPageChange here directly if we can avoid it during render cycles
+           // but it's safe in useEffect
+           onPageChange(pages - 1);
+        }
+    };
 
-  useEffect(() => {
-    document.fonts.ready.then(calculateLayout);
-  }, [calculateLayout]);
+    // Calculate immediately and after a short delay for font rendering
+    calculatePages();
+    const timer = setTimeout(calculatePages, 100);
+    const textTimer = setTimeout(calculatePages, 500); // Fallback
+
+    return () => {
+        clearTimeout(timer);
+        clearTimeout(textTimer);
+    };
+  }, [layoutDims, content, settings.fontSize, onTotalPagesChange]); // Removed currentPageIndex from deps to avoid loop calculation logic, handled inside
+
 
   // Keyboard navigation
   useEffect(() => {
@@ -218,7 +260,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             style={{
                 height: layoutDims ? `${layoutDims.height}px` : '100%',
                 columnWidth: layoutDims ? `${layoutDims.width}px` : 'auto',
-                columnGap: '4rem',
+                columnGap: 0,
                 columnFill: 'auto',
                 width: layoutDims ? `${layoutDims.width}px` : '100%',
                 // Remove transform from style, handled by animate
@@ -226,7 +268,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             
             // Framer Motion Properties
             animate={{ x: `-${currentPageIndex * 100}%` }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            transition={{ type: "spring", stiffness: 120, damping: 20, mass: 0.8 }}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }} // Snap back if not dragging
             dragElastic={0.2}
@@ -238,26 +280,46 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         </motion.div>
       </div>
 
-      {/* Navigation Buttons (same as before) */}
-      {currentPageIndex > 0 && (
-        <button
-          onClick={goToPrevPage}
-          className={`absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg ${theme.ui} ${theme.uiHover} opacity-30 hover:opacity-100 transition-opacity z-10`}
-          aria-label="Previous page"
-        >
-          <ChevronLeft size={24} />
-        </button>
-      )}
+      {/* Tap Zones for Page Flipping - High Z-index but below buttons */}
+      <div 
+          className="absolute top-14 bottom-8 left-0 w-[15%] z-30 cursor-pointer active:bg-black/5 transition-colors"
+          onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); goToPrevPage(); }}
+          role="button"
+          aria-label="Previous page tap zone"
+      />
+      <div 
+          className="absolute top-14 bottom-8 right-0 w-[15%] z-30 cursor-pointer active:bg-black/5 transition-colors"
+          onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); goToNextPage(); }}
+          role="button"
+          aria-label="Next page tap zone"
+      />
 
-      {currentPageIndex < totalPages - 1 && (
-        <button
-          onClick={goToNextPage}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full shadow-lg ${theme.ui} ${theme.uiHover} opacity-30 hover:opacity-100 transition-opacity z-10`}
-          aria-label="Next page"
-        >
-          <ChevronRight size={24} />
-        </button>
-      )}
+      {/* Navigation Buttons - Improved Mobile Visibility */}
+      <button
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); goToPrevPage(); }}
+        disabled={!(currentPageIndex > 0 || onPrevChapter)}
+        className={`absolute left-2 top-1/2 -translate-y-1/2 p-4 rounded-full shadow-xl transition-all z-50
+          ${(currentPageIndex > 0 || onPrevChapter) 
+            ? `${theme.ui} ${theme.uiHover} opacity-90 hover:opacity-100 cursor-pointer border-2` 
+            : `bg-gray-100 text-gray-300 opacity-0 pointer-events-none`}
+        `}
+        aria-label="Previous page"
+      >
+        <ChevronLeft size={28} />
+      </button>
+
+      <button
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); goToNextPage(); }}
+        disabled={!(currentPageIndex < totalPages - 1 || onNextChapter)}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 p-4 rounded-full shadow-xl transition-all z-50
+          ${(currentPageIndex < totalPages - 1 || onNextChapter)
+            ? `${theme.ui} ${theme.uiHover} opacity-90 hover:opacity-100 cursor-pointer border-2`
+            : `bg-gray-100 text-gray-300 opacity-0 pointer-events-none`}
+        `}
+        aria-label="Next page"
+      >
+        <ChevronRight size={28} />
+      </button>
 
       {/* Footer Info */}
       <div className={`absolute bottom-1 left-0 right-0 flex justify-between px-8 text-[10px] ${theme.ui} opacity-60 font-medium select-none z-0`}>

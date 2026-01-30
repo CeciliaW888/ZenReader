@@ -15,7 +15,7 @@
 // Cache version - IMPORTANT: Increment this on every deployment to force cache refresh
 // Format: zenreader-v{major}.{minor}.{timestamp}
 // Update timestamp or increment version when deploying to ensure users get latest UI
-const CACHE_VERSION = 'v1.0.20260128'; // Last updated: 2026-01-28
+const CACHE_VERSION = 'v1.0.20260131'; // Last updated: 2026-01-31
 const CACHE_NAME = `zenreader-${CACHE_VERSION}`;
 
 const URLS_TO_CACHE = [

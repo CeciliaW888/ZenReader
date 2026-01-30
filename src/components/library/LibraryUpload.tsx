@@ -275,6 +275,18 @@ export const LibraryUpload: React.FC<LibraryUploadProps> = ({ onBookLoaded, init
     book.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Scroll to import section helper
+  const handleScrollToImport = () => {
+    setActiveTab('import');
+    // slight delay to allow render
+    setTimeout(() => {
+      const element = document.getElementById('import-card');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
   return (
     <div className="h-full overflow-y-auto bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 text-emerald-950 font-sans selection:bg-emerald-200 selection:text-emerald-900">
 
@@ -291,7 +303,7 @@ export const LibraryUpload: React.FC<LibraryUploadProps> = ({ onBookLoaded, init
 
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('import')}
+            onClick={handleScrollToImport}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'import' ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200 shadow-sm' : 'hover:bg-emerald-50 text-emerald-600'}`}
           >
             <Plus size={18} />
@@ -716,7 +728,7 @@ export const LibraryUpload: React.FC<LibraryUploadProps> = ({ onBookLoaded, init
                   Upload markdown files, paste text, or import from YouTube to start building your personal reading collection.
                 </p>
                 <button
-                  onClick={() => setActiveTab('import')}
+                  onClick={handleScrollToImport}
                   className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2"
                 >
                   <Plus size={20} />
@@ -727,7 +739,7 @@ export const LibraryUpload: React.FC<LibraryUploadProps> = ({ onBookLoaded, init
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {/* Add New Card (Small) */}
                 <button
-                  onClick={() => setActiveTab('import')}
+                  onClick={handleScrollToImport}
                   className="group flex flex-col items-center justify-center h-64 border-2 border-dashed border-emerald-200 rounded-2xl hover:border-emerald-400 hover:bg-emerald-50/50 transition-all cursor-pointer"
                 >
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">

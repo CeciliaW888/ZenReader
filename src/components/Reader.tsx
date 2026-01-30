@@ -36,6 +36,11 @@ export const Reader: React.FC<ReaderProps> = ({
   const theme = THEME_STYLES[settings.theme];
   const fontSizeClass = FONT_SIZES[settings.fontSize];
 
+  // Sort chapters by order to ensure correct flow
+  const sortedChapters = React.useMemo(() => {
+    return [...book.chapters].sort((a, b) => a.order - b.order);
+  }, [book.chapters]);
+
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAI, setShowAI] = useState(false);
@@ -51,10 +56,11 @@ export const Reader: React.FC<ReaderProps> = ({
   const [totalPages, setTotalPages] = useState(1);
 
   // Computed properties
-  const currentChapter = book.chapters.find(c => c.id === currentChapterId);
-  const currentChapterIndex = book.chapters.findIndex(c => c.id === currentChapterId);
+  // Computed properties
+  const currentChapter = sortedChapters.find(c => c.id === currentChapterId);
+  const currentChapterIndex = sortedChapters.findIndex(c => c.id === currentChapterId);
   const hasPrev = currentChapterIndex > 0;
-  const hasNext = currentChapterIndex > -1 && currentChapterIndex < book.chapters.length - 1;
+  const hasNext = currentChapterIndex > -1 && currentChapterIndex < sortedChapters.length - 1;
 
   // Count words for time estimation
   const wordCount = currentChapter?.content.split(/\s+/).filter(w => w.length > 0).length || 0;
@@ -90,24 +96,25 @@ export const Reader: React.FC<ReaderProps> = ({
   }, []);
 
   // Handle chapter boundary navigation
+  // Handle chapter boundary navigation
   const handleNextPage = useCallback(() => {
     if (currentPageIndex < totalPages - 1) {
       setCurrentPageIndex(currentPageIndex + 1);
     } else if (hasNext) {
       // Move to next chapter
-      onChapterSelect(book.chapters[currentChapterIndex + 1].id);
+      onChapterSelect(sortedChapters[currentChapterIndex + 1].id);
     }
-  }, [currentPageIndex, totalPages, hasNext, currentChapterIndex, book.chapters, onChapterSelect, setCurrentPageIndex]);
+  }, [currentPageIndex, totalPages, hasNext, currentChapterIndex, sortedChapters, onChapterSelect, setCurrentPageIndex]);
 
   const handlePrevPage = useCallback(() => {
     if (currentPageIndex > 0) {
       setCurrentPageIndex(currentPageIndex - 1);
     } else if (hasPrev) {
       // Move to previous chapter (last page)
-      onChapterSelect(book.chapters[currentChapterIndex - 1].id);
+      onChapterSelect(sortedChapters[currentChapterIndex - 1].id);
       // We'll need to navigate to last page after chapter loads
     }
-  }, [currentPageIndex, hasPrev, currentChapterIndex, book.chapters, onChapterSelect, setCurrentPageIndex]);
+  }, [currentPageIndex, hasPrev, currentChapterIndex, sortedChapters, onChapterSelect, setCurrentPageIndex]);
 
   // Handle Selection
   useEffect(() => {
@@ -267,12 +274,12 @@ export const Reader: React.FC<ReaderProps> = ({
 
           {/* Chapter Title Header */}
           <div className={`px-8 py-4 ${theme.text}`}>
-            {book.chapters.length > 1 && (
+            {sortedChapters.length > 1 && (
               <span className="text-xs uppercase tracking-widest opacity-40 mb-2 block">
                 Chapter {currentChapter.order + 1}
               </span>
             )}
-            {(book.chapters.length > 1 || (currentChapter.title !== book.title && currentChapter.title !== 'Full Text')) && (
+            {(sortedChapters.length > 1 || (currentChapter.title !== book.title && currentChapter.title !== 'Full Text')) && (
               <h1 className={`text-2xl font-serif font-bold ${theme.text}`}>
                 {currentChapter.title}
               </h1>
@@ -290,8 +297,8 @@ export const Reader: React.FC<ReaderProps> = ({
               chapterHighlights={chapterHighlights}
               searchQuery={searchQuery}
               onHighlightClick={(id) => setActiveHighlightId(id)}
-              onNextChapter={hasNext ? () => onChapterSelect(book.chapters[currentChapterIndex + 1].id) : undefined}
-              onPrevChapter={hasPrev ? () => onChapterSelect(book.chapters[currentChapterIndex - 1].id) : undefined}
+              onNextChapter={hasNext ? () => onChapterSelect(sortedChapters[currentChapterIndex + 1].id) : undefined}
+              onPrevChapter={hasPrev ? () => onChapterSelect(sortedChapters[currentChapterIndex - 1].id) : undefined}
             />
           </div>
 
