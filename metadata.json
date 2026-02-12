@@ -1,0 +1,5 @@
+{
+  "name": "ZenReader",
+  "description": "An immersive, AI-powered Markdown reader that transforms your .md files into a beautiful book-like experience with chapter analysis and summarization.",
+  "requestFramePermissions": []
+}

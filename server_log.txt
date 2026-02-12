@@ -1,0 +1,11 @@
+[dotenv@17.2.3] injecting env (1) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+Server running on port 8080
+Serving static files from: C:\Users\cecil\Repos\ZenReader\dist
+[Proxy] Request for model: gemini-2.0-flash
+[Proxy] Gemini API Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] Resource exhausted. Please try again later. Please refer to https://cloud.google.com/vertex-ai/generative-ai/docs/error-code-429 for more details.
+    at handleResponseNotOk (file:///C:/Users/cecil/Repos/ZenReader/node_modules/@google/generative-ai/dist/index.mjs:432:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async makeRequest (file:///C:/Users/cecil/Repos/ZenReader/node_modules/@google/generative-ai/dist/index.mjs:401:9)
+    at async generateContent (file:///C:/Users/cecil/Repos/ZenReader/node_modules/@google/generative-ai/dist/index.mjs:865:22)
+    at async file:///C:/Users/cecil/Repos/ZenReader/server/index.js:44:24

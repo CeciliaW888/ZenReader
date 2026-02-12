@@ -1,0 +1,75 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependencies
+node_modules
+node_modules/
+server/node_modules
+server/node_modules/
+
+# Build outputs
+dist
+dist-ssr
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Test outputs (regenerated on demand)
+coverage/
+*.lcov
+test-results/
+junit.xml
+vitest.config.ts.timestamp*
+
+# Lint and test result files (should not be committed)
+lint_*.txt
+test_*.txt
+lint_results.*
+test_results.*
+lint_errors.*
+test_errors.*
+
+# Claude Code local files
+.claude/
+
+# Gemini local files
+.gemini/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~

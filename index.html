@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="ZenReader - A modern, AI-powered ebook reader." />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>ZenReader</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="apple-touch-icon" href="/logo.svg">
+
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          screens: {
+            'xs': '480px',
+          },
+          fontFamily: {
+            serif: ['Merriweather', 'serif'],
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            sepia: {
+              50: '#fbf0d9',
+              100: '#f7e6c5',
+              200: '#f0d29d',
+              300: '#e8be74',
+              800: '#5c4b2b',
+              900: '#3e321c',
+            }
+          }
+        },
+      },
+    }
+  </script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet">
+  <style>
+    /* Custom scrollbar for webkit */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.5);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.8);
+    }
+  </style>
+  <div id="root" class="h-full">
+    <!-- Fallback Loading UI (Raw HTML/CSS) -->
+    <style>
+      .initial-loader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        background-color: #ffffff;
+        font-family: sans-serif;
+        color: #10b981;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #10b981;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      #error-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        z-index: 9999;
+        padding: 20px;
+        color: red;
+        overflow: auto;
+      }
+    </style>
+    <div class="initial-loader">
+      <div class="spinner"></div>
+      <div>Loading ZenReader...</div>
+      <noscript>Please enable JavaScript to use this app.</noscript>
+    </div>
+    <div id="error-overlay"></div>
+  </div>
+  <script>
+    window.onerror = function (msg, url, line, col, error) {
+      document.querySelector('.initial-loader').style.display = 'none';
+      var overlay = document.getElementById('error-overlay');
+      overlay.style.display = 'block';
+      overlay.innerHTML = '<h3>App Crashed</h3><pre>' + msg + '\n' + url + ':' + line + ':' + col + '</pre>';
+    };
+  </script>
+  <script type="module" src="/src/index.tsx"></script>
+  <script>
+    // Aggressively unregister service workers to break the cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (registrations) {
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log('ServiceWorker unregistered');
+        }
+      });
+    }
+  </script>
+  </body>
+
+</html>
